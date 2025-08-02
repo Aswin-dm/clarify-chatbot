@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Clarify!</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    #chatbox {
+      background: #ffffff;
+      width: 100%;
+      max-width: 800px;
+      border-radius: 15px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #chatlog {
+      max-height: 400px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+      padding-right: 10px;
+    }
+
+    .message {
+      margin: 10px 0;
+      line-height: 1.6;
+    }
+
+    .user {
+      text-align: right;
+      color: #007bff;
+    }
+
+    .bot {
+      text-align: left;
+      color: #28a745;
+    }
+
+    .input-area {
+      display: flex;
+      gap: 10px;
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      flex: 1;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="chatbox">
+    <h1>Welcome To Clarify!</h1>
+    <div id="chatlog"></div>
+
+    <div class="input-area">
+      <input type="text" id="message" placeholder="Ask me about fees, courses, eligibility..." />
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    async function sendMessage() {
+      const message = document.getElementById('message').value.trim();
+      const chatlog = document.getElementById('chatlog');
+
+      if (!message) return;
+
+      // Show user's message
+      chatlog.innerHTML += `<div class="message user"><strong>You:</strong> ${escapeHTML(message)}</div>`;
+
+      // Typing indicator
+      const loading = document.createElement('div');
+      loading.className = 'message bot';
+      loading.id = 'loading';
+      loading.innerHTML = `<strong>Bot:</strong> Typing...`;
+      chatlog.appendChild(loading);
+      chatlog.scrollTop = chatlog.scrollHeight;
+
+      try {
+        const res = await fetch('http://localhost:5000/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message }) // only message sent, no department
+        });
+
+        const data = await res.json();
+
+        document.getElementById('loading').remove();
+
+        // Show bot response
+        chatlog.innerHTML += `<div class="message bot"><strong>Bot:</strong> ${escapeHTML(data.response)}</div>`;
+      } catch (err) {
+        document.getElementById('loading').remove();
+        chatlog.innerHTML += `<div class="message bot"><strong>Bot:</strong> Sorry, I couldn't reach the server.</div>`;
+      }
+
+      document.getElementById('message').value = '';
+      chatlog.scrollTop = chatlog.scrollHeight;
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, tag => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]
+      ));
+    }
+
+    document.getElementById('message').addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') sendMessage();
+    });
+  </script>
+</body>
+</html>
