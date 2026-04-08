@@ -4,24 +4,20 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import mysql.connector
 import torch
 
-# --- Flask Setup ---
 app = Flask(__name__)
 CORS(app)
 
-# --- Load DialoGPT Model ---
 tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-small")
 model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-small")
 chat_history_ids = None
 
-# --- MySQL Config ---
 db_config = {
     'user': 'root',
-    'password': 'Aswin2005@',
+    'password': '***',
     'host': 'localhost',
     'database': 'college_data'
 }
 
-# --- Department Aliases for NLP ---
 department_keywords = {
     "CSE": ["cse", "computer science", "cs", "comp sci"],
     "IT": ["it", "information technology","iy"],
@@ -31,7 +27,6 @@ department_keywords = {
     "AI": ["ai", "artificial intelligence", "ai & ds", "ai and data science"]
 }
 
-# --- NLP: Extract Intent + Department ---
 def extract_intent_and_department(user_input):
     input_lower = user_input.lower()
     intent = None
@@ -44,8 +39,6 @@ def extract_intent_and_department(user_input):
         intent = "eligibility_criteria"
     elif "scholarship" in input_lower or "scholarships" in input_lower:
         intent = "scholarships"
-
-    # Detect department
     for dept_code, aliases in department_keywords.items():
         for alias in aliases:
             if alias in input_lower:
@@ -55,8 +48,6 @@ def extract_intent_and_department(user_input):
             break
 
     return intent, department
-
-# --- SQL Query for College Info ---
 def get_college_info(intent, department=None):
     connection = mysql.connector.connect(**db_config)
     cursor = connection.cursor(dictionary=True)
@@ -73,8 +64,6 @@ def get_college_info(intent, department=None):
     connection.close()
 
     return format_info(result, intent)
-
-# --- Format Response Nicely ---
 def format_info(info, field):
     if not info:
         return "Sorry, I couldn't find any information."
@@ -103,29 +92,21 @@ def format_info(info, field):
             for entry in info:
                 response += f"- {entry['name']}: {entry[field]}\n"
         return response.strip()
-
-# --- Main Chat Endpoint ---
 @app.route("/chat", methods=["POST"])
 def chat():
     global chat_history_ids
     data = request.json
     user_input = data.get("message", "")
-
-    # NLP detection
     intent, department = extract_intent_and_department(user_input)
-
-    # If it's a factual query, go to DB
     if intent:
         response = get_college_info(intent, department)
     else:
-        # Otherwise, fall back to DialoGPT
         new_input_ids = tokenizer.encode(user_input + tokenizer.eos_token, return_tensors='pt')
         bot_input_ids = torch.cat([chat_history_ids, new_input_ids], dim=-1) if chat_history_ids is not None else new_input_ids
         chat_history_ids = model.generate(bot_input_ids, max_length=1000, pad_token_id=tokenizer.eos_token_id)
         response = tokenizer.decode(chat_history_ids[:, bot_input_ids.shape[-1]:][0], skip_special_tokens=True)
-
     return jsonify({"response": response})
 
-# --- Run App ---
+
 if __name__ == "__main__":
     app.run(debug=True)
